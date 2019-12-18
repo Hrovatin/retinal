@@ -18,19 +18,14 @@ seurat.obj<-SCTransform(seurat.obj, batch_var ='region' ,variable.features.n=NUL
 seurat.obj<-RunPCA(seurat.obj,verbose=FALSE,npcs = 100)
 
 saveRDS(object=seurat.obj,'scaled.rds')
-
-png('elbow.png')
+print('PCA elbow plot')
 ElbowPlot(seurat.obj)
-dev.off()
 seurat.obj<-RunUMAP(seurat.obj,dims=1:16,verbose=FALSE,min.dist=0.1)
 #seurat.obj<-FindNeighbors(seurat.obj,dims=1:30,verbose=FALSE)
 #seurat.obj<-FindClusters(seurat.obj,verbose=FALSE)
-png('umap_region.png')
+print('umap by region and by cell type')
 DimPlot(seurat.obj,group.by='region')
-dev.off()
-png('umap_cell_type.png')
 DimPlot(seurat.obj,group.by='cell_type')
-dev.off()
 
 # Repeat with regress out MT
 seurat.obj<-NULL
@@ -42,18 +37,13 @@ seurat.obj<-SCTransform(seurat.obj, batch_var ='region' ,variable.features.n=NUL
 seurat.obj<-RunPCA(seurat.obj,verbose=FALSE,npcs = 100)
 
 saveRDS(object=seurat.obj,'scaled_regressedMT.rds')
-
-png('elbow_regressedMT.png')
+print('PCA elbow plot, adjusted for mt')
 ElbowPlot(seurat.obj)
-dev.off()
 seurat.obj<-RunUMAP(seurat.obj,dims=1:16,verbose=FALSE,min.dist=0.1)
 #seurat.obj<-FindNeighbors(seurat.obj,dims=1:30,verbose=FALSE)
 #seurat.obj<-FindClusters(seurat.obj,verbose=FALSE)
-png('umap_region_regressedMT.png')
+print('umap by region and by cell type, adjusted by mt')
 DimPlot(seurat.obj,group.by='region')
-dev.off()
-png('umap_cell_type_regressedMT.png')
 DimPlot(seurat.obj,group.by='cell_type')
-dev.off()
 
 
