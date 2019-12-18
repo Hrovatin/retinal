@@ -155,7 +155,7 @@ for name in names_original:
     name2=name.split('_')[1].replace('-','.')
     names.append(change_dict[name1]+'_'+name2)
 
-#Passed QC
+# Passed QC
 files = [f for f in glob.glob(data_path  + "*namesPassedQC.csv", recursive=True)]
 passed=[]
 region=[]
@@ -168,9 +168,13 @@ for file in files:
     region.extend([file_parts[1]]*n_passed)
     cell_type.extend([file_parts[2]]*n_passed)
 
+# Retain cells that passed QC
 print('Unique cells? ',len(passed)==len(set(passed)))
 passed_idx = [names.index(cell.replace('-','.')) for cell in passed]
 subset_mtx=sp.sparse.csr_matrix(merged[:,passed_idx])
+
+# Analyse how each gene was expressed across cells
+# In how many cells was the gene present
 count_genes=[]
 for row_n in range(subset_mtx.shape[0]):
     count_genes.append(subset_mtx.getrow(row_n).count_nonzero())
@@ -181,7 +185,7 @@ plt.xlabel('Gene in log10(N) cells')
 plt.ylabel('Count')
 plt.savefig(data_path+'Gene_presence_distribution.png')
 
-
+# Mean expression of each gene
 mean_expression=subset_mtx.mean(axis=1).flatten().tolist()[0]
 plt.clf()
 plt.hist(np.log10(np.array([mean for mean,count in zip(mean_expression,count_genes) if count>0])),bins=100)
@@ -189,7 +193,7 @@ plt.xlabel('log10(mean) Mean expression')
 plt.ylabel('Count')
 plt.savefig(data_path+'Gene_mean_distribution.png')
 
-
+# Filter genes based on expression in N cells (count) and mean expression (mean)
 gene_idx=[idx for count,mean,idx in zip(count_genes,mean_expression,range(len(count_genes)))
           if count>15 and mean>0.0001]
 subset_mtx2=subset_mtx[gene_idx,:]
