@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 from collections import OrderedDict
 from sklearn.metrics import precision_recall_fscore_support as score
+from sklearn.metrics import roc_auc_score
+import pickle
+from sklearn.linear_model import LogisticRegression
 
 def make_tsne(data: pd.DataFrame, perplexities_range: list = [50, 500],
               exaggerations: list = [12, 1.2],
@@ -142,9 +145,9 @@ def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: boo
                 handle.set_alpha(1)
 
 
-def analyse_tsne(data1,data2,col_data,label:str='cell_type',label_splitted='region',perplexities_range: list = [50, 500],
+def analyse_tsne(data1,data2,col_data,label:str='cell_type',labels=['region'],perplexities_range: list = [50, 500],
               exaggerations: list = [12, 1.2],
-              momentums: list = [0.6, 0.94],initial_split:int=1):
+              momentums: list = [0.6, 0.94],initial_split:int=1,tsne1=None):
     """
     Makes tsne on data1 and embeds data2. Plots both overlaping with data2 having higher alpha.
     Trains calssifier on data1 and predicts cell type on data2.
@@ -152,15 +155,16 @@ def analyse_tsne(data1,data2,col_data,label:str='cell_type',label_splitted='regi
     :param col_data: Data describing cells. Cell names in index, data in columns.
     :param label: A column in cell_data. Colours by this in tSNE and uses as y for classification.
     """
-    tsne1=make_tsne(data1,perplexities_range=perplexities_range,
+    if tsne1 is None:
+        tsne1=make_tsne(data1,perplexities_range=perplexities_range,
                     exaggerations=exaggerations,momentums=momentums,initial_split=initial_split)
     tsne2 = tsne1.prepare_partial(data2,initialization="median",k=30)
     col_data1=col_data.loc[data1.index,:]
     col_data2=col_data.loc[data2.index,:]
     
-    
-    plot_tsne([tsne1,tsne2], classes=[dict(zip(col_data1.index,col_data1[label_splitted])),
-                                  dict(zip(col_data2.index,col_data2[label_splitted]))
+    for lab in labels:
+        plot_tsne([tsne1,tsne2], classes=[dict(zip(col_data1.index,col_data1[lab])),
+                                  dict(zip(col_data2.index,col_data2[lab]))
                                   ], names=[data1.index,data2.index], legend=True,
               plotting_params = [{'alpha': 0.2,'s':1},{'alpha': 1,'s':1}])
     plot_tsne([tsne1,tsne2], classes=[dict(zip(col_data1.index,col_data1[label])),
@@ -168,13 +172,45 @@ def analyse_tsne(data1,data2,col_data,label:str='cell_type',label_splitted='regi
                                   ], names=[data1.index,data2.index], legend=True,
               plotting_params = [{'alpha': 0.2,'s':1},{'alpha': 1,'s':1}])
     
-    classifier = KNeighborsClassifier(n_neighbors=30,n_jobs=4)
-    classifier.fit(tsne1,col_data1[label])
-    prediction=classifier.predict(tsne2)
-    truth=col_data2[label]
-    labels=list(set(col_data2[label]))
-    labels.sort()
-    precision, recall, fscore, support = score(y_true=truth, y_pred=prediction,labels=labels)
-    print(pd.DataFrame({label:labels,'precision':precision,'recall':recall,'fscore':fscore,
-                  'N true':support}))
+    classifier = KNeighborsClassifier(weights='distance',n_jobs=4).fit(tsne1,col_data1[label])
+    
+    evaluate_classifier(classifier=classifier,data=tsne2,col_data2=col_data,label=label)
     return tsne1,tsne2,classifier
+
+def make_log_regression(data1,data2,col_data,label='cell_type',
+                        logreg={'penalty':'l1','C':0.8,'random_state':0,'solver':'saga','n_jobs':8}):
+    log_reg=LogisticRegression(**logreg).fit(data1, col_data.loc[data1.index,label])
+    print('** Statistics train **')
+    evaluate_classifier(classifier=log_reg,data=data1,col_data=col_data,label=label)
+    print('** Statistics test **')
+    evaluate_classifier(classifier=log_reg,data=data2,col_data=col_data,label=label)
+    return log_reg
+    
+def evaluate_classifier(classifier,data,col_data,label):
+    prediction=classifier.predict(data)
+    truth=col_data.loc[data.index,label].values
+    labels=list(set(col_data.loc[data.index,label]))
+    precision, recall, fscore, support = score(y_true=truth, y_pred=prediction,labels=labels)
+    precision_all, recall_all, fscore_all, support_all=score(
+        y_true=truth, y_pred=prediction,labels=labels,average='weighted')
+    print(pd.DataFrame({'class':np.append(classifier.classes_,
+               'weighted average'),'precision':np.append(precision,precision_all),
+             'recall':np.append(recall,recall_all),
+             'fscore':np.append(fscore,fscore_all),
+            'N true':np.append(support,support_all)}))
+    prediction_p=classifier.predict_proba(data)
+    print('ROC AUC score (weighted average)',roc_auc_score(y_true=truth, y_score=prediction_p,
+                                                           multi_class='ovr', average='weighted'))
+    
+def savePickle(file, object):
+    f = open(file, 'wb')
+    pickle.dump(object, f)
+    f.close()
+
+
+def loadPickle(file):
+    pkl_file = open(file, 'rb')
+    result = pickle.load(pkl_file)
+    pkl_file.close()
+    return result
+
