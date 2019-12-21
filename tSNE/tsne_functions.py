@@ -145,7 +145,7 @@ def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: boo
                 handle.set_alpha(1)
 
 
-def analyse_tsne(data1,data2,col_data,label:str='cell_type',labels=['region'],perplexities_range: list = [50, 500],
+def analyse_tsne(data1,data2,col_data,label:str='cell_type',labels=['region','cell_types_fine'],perplexities_range: list = [50, 500],
               exaggerations: list = [12, 1.2],
               momentums: list = [0.6, 0.94],initial_split:int=1,tsne1=None):
     """
