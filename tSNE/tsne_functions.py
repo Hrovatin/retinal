@@ -66,8 +66,9 @@ def make_tsne(data: pd.DataFrame, perplexities_range: list = [50, 500],
         embedding=embedding1
     
     return embedding
+
 def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: bool = False,
-              plotting_params: dict = {'s': 1},title='',colour_dict=None):
+              plotting_params: dict = {'s': 0.2,'alpha':0.2},title='',colour_dict=None):
     """
     Plot tsne embedding
     :param tsne: List of embeddings, as returned by make_tsne
@@ -133,6 +134,8 @@ def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: boo
                     plotting_params_class = plotting_params_class[class_name]
                 else:
                     plotting_params_class = plotting_params_class
+                if 'marker' not in plotting_params_class.keys():
+                    plotting_params_class['marker']='o'
                 ax.scatter(class_data['x'],class_data['y'],
                        c=[colour_dict[class_name] for class_name in class_data['class']],
                        label=class_name, **plotting_params_class)
@@ -163,7 +166,7 @@ def analyse_tsne(data1,data2,col_data,label:str='cell_type',labels=['region','ce
                     exaggerations=exaggerations,momentums=momentums,initial_split=initial_split)
     tsne2 = tsne1.prepare_partial(data2.loc[:,data1.columns],initialization="median",k=30)
     for exaggeration, momentum in zip(exaggerations, momentums):
-        tsne2 = tsne2.optimize(n_iter=100, exaggeration=exaggeration, momentum=momentum)
+        tsne2 = tsne2.optimize(n_iter=50, exaggeration=exaggeration, momentum=momentum)
         
     col_data1=col_data.loc[data1.index,:]
     col_data2=col_data.loc[data2.index,:]
@@ -210,7 +213,7 @@ def embed_tsne_new(data1,data2,col_data1,label:str='cell_type',perplexities_rang
                     exaggerations=exaggerations,momentums=momentums,initial_split=initial_split)
     tsne2 = tsne1.prepare_partial(data2.loc[:,data1.columns],initialization="median",k=30)
     for exaggeration, momentum in zip(exaggerations, momentums):
-        tsne2 = tsne2.optimize(n_iter=100, exaggeration=exaggeration, momentum=momentum)
+        tsne2 = tsne2.optimize(n_iter=50, exaggeration=exaggeration, momentum=momentum)
     
     col_data1=col_data1.loc[data1.index,:]
     
@@ -235,7 +238,13 @@ def embed_tsne_new(data1,data2,col_data1,label:str='cell_type',perplexities_rang
    
     return tsne1,tsne2,classifier, predictions
 
-
+def tsne_add(tsne1,data1:pd.DataFrame,data2:pd.DataFrame,perplexities_range: list = [50, 500],
+              exaggerations: list = [12, 1.2],momentums: list = [0.6, 0.94],n_iter_optimize:int=50):
+    tsne2 = tsne1.prepare_partial(data2.loc[:,data1.columns],initialization="median",k=30)
+    for exaggeration, momentum in zip(exaggerations, momentums):
+        tsne2 = tsne2.optimize(n_iter=n_iter_optimize, exaggeration=exaggeration, momentum=momentum)
+    return tsne2
+    
 
 def make_log_regression(data1,data2,col_data,label='cell_type',
                         logreg={'penalty':'l1','C':0.8,'random_state':0,'solver':'saga','n_jobs':8},log_reg=None):
