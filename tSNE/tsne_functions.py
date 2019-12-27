@@ -238,16 +238,17 @@ def embed_tsne_new(data1,data2,col_data1,label:str='cell_type',perplexities_rang
    
     return tsne1,tsne2,classifier, predictions
 
-def tsne_add(tsne1,data1:pd.DataFrame,data2:pd.DataFrame,perplexities_range: list = [50, 500],
-              exaggerations: list = [12, 1.2],momentums: list = [0.6, 0.94],n_iter_optimize:int=50):
-    tsne2 = tsne1.prepare_partial(data2.loc[:,data1.columns],initialization="median",k=30)
-    for exaggeration, momentum in zip(exaggerations, momentums):
-        tsne2 = tsne2.optimize(n_iter=n_iter_optimize, exaggeration=exaggeration, momentum=momentum)
+def tsne_add(tsne1,data2:pd.DataFrame,
+              exaggerations: list = [2, None],momentums: list = [0.5, 0.8], n_iters_optimize:int=[5,100]):
+    tsne2 = tsne1.prepare_partial(data2,initialization="median",k=30)
+    for exaggeration, momentum,n_iter in zip(exaggerations, momentums,n_iters_optimize):
+        tsne2 = tsne2.optimize(n_iter=n_iter, exaggeration=exaggeration, momentum=momentum, 
+                               max_grad_norm=0.25,learning_rate=0.1)
     return tsne2
     
 
 def make_log_regression(data1,data2,col_data,label='cell_type',
-                        logreg={'penalty':'l1','C':0.8,'random_state':0,'solver':'saga','n_jobs':8},log_reg=None):
+                        logreg={'penalty':'l1','C':0.8,'random_state':0,'solver':'saga','n_jobs':30},log_reg=None):
     if log_reg is None:
         log_reg=LogisticRegression(**logreg).fit(data1, col_data.loc[data1.index,label])
     
@@ -258,10 +259,10 @@ def make_log_regression(data1,data2,col_data,label='cell_type',
         class_feats.append({'Class':group,'N features':len(features[weights!=0])})
     print(pd.DataFrame(class_feats))
     print('** Statistics train **')
-    evaluate_classifier(classifier=log_reg,data=data1,col_data=col_data,label=label)
+    predicted=evaluate_classifier(classifier=log_reg,data=data1,col_data=col_data,label=label)
     print('** Statistics test **')
-    evaluate_classifier(classifier=log_reg,data=data2,col_data=col_data,label=label)
-    return log_reg
+    predicted=evaluate_classifier(classifier=log_reg,data=data2,col_data=col_data,label=label)
+    return log_reg,predicted
     
 def evaluate_classifier(classifier,data,col_data,label):
     prediction=classifier.predict(data)
@@ -276,18 +277,21 @@ def evaluate_classifier(classifier,data,col_data,label):
     fscores=np.append(fscore,fscore_all)
     supports=np.append(support,support_all)
     if len(classes) == len(precisions) == len (recalls)==len(recalls)==len(fscores)==len(supports):
-        print(pd.DataFrame({'class':classes,'precision':precisions,
-             'recall':recalls,
-             'fscore':fscores,
+        print(pd.DataFrame({'class':classes,
+             #'precision':np.around(precisions,2),
+             #'recall':np.around(recalls,2),
+             'fscore':np.around(fscores,2),
             'support':supports}))
     else:
-        print('class:',classes,'; precision:',precisions,
-             '; recall:',recalls,
-             '; fscore:',fscores,
-            '; support',supports)
+        print('class:',classes,
+              #'; precision:',np.around(precisions,2),
+             #'; recall:',np.around(recalls,2),
+             '; fscore:',np.around(fscores,2),
+            '; support',np.around(supports,2))
     prediction_p=classifier.predict_proba(data)
-    print('ROC AUC score (weighted average)',roc_auc_score(y_true=truth, y_score=prediction_p,
-                                                           multi_class='ovr', average='weighted'))
+    print('ROC AUC score (weighted average)',round(roc_auc_score(y_true=truth, y_score=prediction_p,
+                                                           multi_class='ovr', average='weighted'),2))
+    return pd.DataFrame(prediction,index=data.index)
 
     
 def predict(classifier,data:pd.DataFrame):
@@ -306,3 +310,12 @@ def loadPickle(file):
     pkl_file.close()
     return result
 
+def normalise_counts(counts=pd.DataFrame):
+    scale=counts.sum(axis=1)
+    counts=counts.T
+    counts=counts/scale
+    counts=counts.T
+    counts=counts*1000000
+    counts=counts+1
+    return np.log(counts)
+    
