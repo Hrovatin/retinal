@@ -6,8 +6,8 @@ data_path='/home/khrovatin/retinal/data/counts/'
 data_path_h='/home/khrovatin/retinal/data/human/'
 
 import sys
-sys.stdout = open(data_path_h+'Human_classification_test_out.txt', 'w')
-sys.stderr = open(data_path_h+'Human_classification_test_err.txt', 'w')
+sys.stdout = open(data_path_h+'Human_classification_test_out_new.txt', 'w')
+sys.stderr = open(data_path_h+'Human_classification_test_err_new.txt', 'w')
 print('********* NEW RUN *******')
 
 import h5py
@@ -19,6 +19,7 @@ from numpy import arange
 from sklearn.preprocessing import scale
 from sklearn.decomposition import PCA
 import numpy as np
+import random
 
 import importlib
 import tsne_functions
@@ -107,35 +108,46 @@ data_norm=pd.DataFrame(scale(data_norm),index=data_norm.index,columns=data_norm.
 print('Shapes of scaled normalised data for all, fov and per:',data_norm.shape,data_norm_fov.shape,data_norm_per.shape)
 # In[19]:
 
-#tsne_fov=make_tsne(data_int.loc[fov_cells,:])
-#savePickle(data_path_h+'tsne_fov.pkl',(pd.DataFrame(np.array(tsne_fov),index=fov_cells)))
+fov_cells_sample=random.sample(list(fov_cells),int(len(fov_cells)*0.9))
+tsne_fov=make_tsne(data_int.loc[fov_cells_sample,:])
+savePickle(data_path_h+'tsne_fov.pkl',(pd.DataFrame(np.array(tsne_fov),index=fov_cells_sample)))
 
 tsne_per=make_tsne(data_int.loc[per_cells,:])
 savePickle(data_path_h+'tsne_per.pkl',(pd.DataFrame(np.array(tsne_per),index=per_cells)))
 
+# Make also tSNE on non integrated data
+#tsne_fov_nonint=make_tsne(data_norm.loc[fov_cells,:])
+#savePickle(data_path_h+'tsne_fov_nonintegrated.pkl',(pd.DataFrame(np.array(tsne_fov_nonint),index=fov_cells)))
+
+#tsne_per_nonint=make_tsne(data_norm.loc[per_cells,:])
+#savePickle(data_path_h+'tsne_per_nonintegrated.pkl',(pd.DataFrame(np.array(tsne_per_nonint),index=per_cells)))
+
+#tsne_all_nonint=make_tsne(data_norm)
+#savePickle(data_path_h+'tsne_all_nonintegrated.pkl',(pd.DataFrame(np.array(tsne_all_nonint),index=data_norm.index)))
+
 
 # tSNE: Add per of fov or fov on per
-#tsne_fov_aPer=tsne_add(tsne1=tsne_fov,data2=data_norm_per)
-#savePickle(data_path_h+'tsne_fov_aPer.pkl',(pd.DataFrame(np.array(tsne_fov_aPer),index=per_cells)))
+tsne_fov_aPer=tsne_add(tsne1=tsne_fov,data2=data_norm_per)
+savePickle(data_path_h+'tsne_fov_aPer.pkl',(pd.DataFrame(np.array(tsne_fov_aPer),index=per_cells)))
 
 tsne_per_aFov=tsne_add(tsne1=tsne_per,data2=data_norm_fov)
 savePickle(data_path_h+'tsne_per_aFov.pkl',(pd.DataFrame(np.array(tsne_per_aFov),index=fov_cells)))
 
 # Classification KNN (test one region, train another)
 # On tSNE
-#print('Classifier: KNN scaled(log(CPM)) tSNE, train fov, test per')
-#knn_tsne_fov = KNeighborsClassifier(weights='distance',n_jobs=4).fit(tsne_fov,col_data.loc[fov_cells,'cell_type'])
-#predicted=evaluate_classifier(classifier=knn_tsne_fov,data=pd.DataFrame(tsne_fov_aPer,index=per_cells),col_data=col_data,label='cell_type')
-#savePickle(data_path_h+'knn_tsne_fov_aPer.pkl',(knn_tsne_fov,predicted))
+print('Classifier: integrated tSNE, train fov, test per')
+knn_tsne_fov = KNeighborsClassifier(weights='distance',n_jobs=4).fit(tsne_fov,col_data.loc[fov_cells_sample,'cell_type'])
+predicted=evaluate_classifier(classifier=knn_tsne_fov,data=pd.DataFrame(tsne_fov_aPer,index=per_cells),col_data=col_data,label='cell_type')
+savePickle(data_path_h+'knn_tsne_fov_aPer.pkl',(knn_tsne_fov,predicted))
 
-print('Classifier: KNN scaled(log(CPM)) tSNE, train per, test fov')
+print('Classifier: integrated tSNE, train per, test fov')
 knn_tsne_per = KNeighborsClassifier(weights='distance',n_jobs=4).fit(tsne_per,col_data.loc[per_cells,'cell_type'])
 predicted=evaluate_classifier(classifier=knn_tsne_per,data=pd.DataFrame(tsne_per_aFov,index=fov_cells),col_data=col_data,label='cell_type')
 savePickle(data_path_h+'knn_tsne_per_aFov.pkl',(knn_tsne_per,predicted))
 
 # On scaled log CPM normalised data
 # Columns are not matched explicitely as both per and fov come from data_norm
-print('Classifier: KNN scaled log(CPM), train fov, test per')
+print('Classifier: KNN expression, train fov, test per')
 knn_expr_fov = KNeighborsClassifier(metric='cosine', weights='distance', n_jobs=20).fit(
     data_int.loc[fov_cells,:], col_data.loc[fov_cells, 'cell_type'])
 predicted=evaluate_classifier(classifier=knn_expr_fov,
@@ -143,7 +155,7 @@ predicted=evaluate_classifier(classifier=knn_expr_fov,
                     col_data=col_data, label='cell_type')
 savePickle(data_path_h+'knn_expr_fov_aPer.pkl',(knn_expr_fov,predicted))
 
-print('Classifier: KNN scaled log(CPM), train per, test fov')
+print('Classifier: KNN expression, train per, test fov')
 knn_expr_per = KNeighborsClassifier(metric='cosine', weights='distance', n_jobs=20).fit(
     data_int.loc[per_cells,:], col_data.loc[per_cells, 'cell_type'])
 predicted=evaluate_classifier(classifier=knn_expr_per,

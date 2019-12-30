@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 from collections import OrderedDict
 from sklearn.metrics import precision_recall_fscore_support as score
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score,roc_curve, auc
 import pickle
 from sklearn.linear_model import LogisticRegression
 import numpy as np
+from sklearn.preprocessing import label_binarize
 
 def make_tsne(data: pd.DataFrame, perplexities_range: list = [50, 500],
               exaggerations: list = [12, 1.2],
@@ -68,7 +69,8 @@ def make_tsne(data: pd.DataFrame, perplexities_range: list = [50, 500],
     return embedding
 
 def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: bool = False,
-              plotting_params: dict = {'s': 0.2,'alpha':0.2},title='',colour_dict=None):
+              plotting_params: dict = {'s': 0.2,'alpha':0.2},title=None,colour_dict=None,fig_data=None,
+              order_legend:list=None):
     """
     Plot tsne embedding
     :param tsne: List of embeddings, as returned by make_tsne
@@ -81,18 +83,30 @@ def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: boo
     each tsne,  2.) dict with class names as keys and parameters dicts as values, 3.) dict of parameters.
     :return:
     """
+    if fig_data is None:
+        fig, ax = plt.subplots()
+    else:
+        fig,ax=fig_data
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    if title is not None:
+        fig.suptitle(title)
     if classes is None:
         data = pd.DataFrame()
         for tsne in tsnes:
+            if not isinstance(tsne,np.ndarray):
+                tsne=np.array(tsne)
             x = [x[0] for x in tsne]
             y = [x[1] for x in tsne]
             data = data.append(pd.DataFrame({'x': x, 'y': y}))
-        plt.scatter(data['x'],data['y'] , alpha=0.5, **plotting_params)
+        ax.scatter(data['x'],data['y'] , alpha=0.5, **plotting_params)
     else:
         if len(tsnes) != len(names):
             raise ValueError('N of tSNEs must match N of their name lists')
         data = pd.DataFrame()
         for tsne, name, group in zip(tsnes, names, range(len(tsnes))):
+            if not isinstance(tsne,np.ndarray):
+                tsne=np.array(tsne)
             x = [x[0] for x in tsne]
             y = [x[1] for x in tsne]
             data = data.append(pd.DataFrame({'x': x, 'y': y, 'name': name, 'group': [group] * len(x)}))
@@ -119,9 +133,6 @@ def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: boo
             # colour_idx = range(len(class_names))
             colour_dict = dict(zip(class_names, selected_colours))
 
-        fig = plt.figure()
-        fig.suptitle(title)
-        ax = plt.subplot(111)
         for group_name,group_data in data.groupby('group'):
             for class_name,class_data in group_data.groupby('class'):
                 plotting_params_point=[]
@@ -141,14 +152,24 @@ def plot_tsne(tsnes: list, classes: list = None, names: list = None, legend: boo
                        label=class_name, **plotting_params_class)
         if legend:
             handles, labels = fig.gca().get_legend_handles_labels()
-            by_label = OrderedDict(zip(labels, handles))
+            if order_legend is not None:
+                labels=[str(label) for label in labels]
+                order_legend=[str(label) for label in order_legend]
+                legend_order_dict=dict(zip(order_legend,range(len(order_legend))))
+                legend_dict=dict(zip(labels,handles))
+                legend_with_order={legend_order_dict[label]:label for label in labels}
+                labels=[label for idx, label in sorted(legend_with_order.items(), key=lambda item: item[0])]
+                handles=[legend_dict[label] for label in labels]      
+
 
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-            legend = plt.legend(by_label.values(), by_label.keys(),loc='center left', bbox_to_anchor=(1, 0.5))
+            legend = ax.legend( handles,labels,loc='center left', bbox_to_anchor=(1, 0.5))
             for handle in legend.legendHandles:
                 handle._sizes = [10]
                 handle.set_alpha(1)
+
+
 
 
 def analyse_tsne(data1,data2,col_data,label:str='cell_type',labels=['region','cell_types_fine'],perplexities_range: list = [50, 500],
@@ -267,16 +288,15 @@ def make_log_regression(data1,data2,col_data,label='cell_type',
 def evaluate_classifier(classifier,data,col_data,label):
     prediction=classifier.predict(data)
     truth=col_data.loc[data.index,label].values
-    labels=list(set(col_data.loc[data.index,label]))
-    precision, recall, fscore, support = score(y_true=truth, y_pred=prediction,labels=labels)
+    precision, recall, fscore, support = score(y_true=truth, y_pred=prediction,labels=classifier.classes_)
     precision_all, recall_all, fscore_all, support_all=score(
-        y_true=truth, y_pred=prediction,labels=labels,average='weighted')
+        y_true=truth, y_pred=prediction,labels=classifier.classes_,average='weighted')
     classes=np.append(classifier.classes_, 'weighted average')
     precisions=np.append(precision,precision_all)
     recalls=np.append(recall,recall_all)
     fscores=np.append(fscore,fscore_all)
     supports=np.append(support,support_all)
-    if len(classes) == len(precisions) == len (recalls)==len(recalls)==len(fscores)==len(supports):
+    if len(classes) == len(precisions) == len (recalls)==len(fscores)==len(supports):
         print(pd.DataFrame({'class':classes,
              #'precision':np.around(precisions,2),
              #'recall':np.around(recalls,2),
@@ -291,7 +311,19 @@ def evaluate_classifier(classifier,data,col_data,label):
     prediction_p=classifier.predict_proba(data)
     print('ROC AUC score (weighted average)',round(roc_auc_score(y_true=truth, y_score=prediction_p,
                                                            multi_class='ovr', average='weighted'),2))
+    print('ROC AUC score (micro)',round(roc_auc_micro(classifier=classifier, x=data,y=truth),2))
     return pd.DataFrame(prediction,index=data.index)
+
+def roc_auc_micro(classifier, x:pd.DataFrame,y):
+    #Micro
+    n_classes=len(classifier.classes_)
+    if hasattr(classifier,'decision_function'):
+        y_score = classifier.decision_function(x)
+    else:
+        y_score = classifier.predict_proba(x)
+    y = label_binarize(y,classes=classifier.classes_)
+    fpr, tpr, _ = roc_curve(y.ravel(), y_score.ravel())
+    return auc(fpr, tpr)
 
     
 def predict(classifier,data:pd.DataFrame):

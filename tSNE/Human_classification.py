@@ -87,6 +87,8 @@ savePickle(data_path_h+'softmax_c'+str(c)+'_all.pkl',softmax_all)
 
    
 # HUMAN
+NMAIN='N_main_class'
+MAIN='main_class'
 file=h5py.File(data_path_h+'normalised_human.h5','r')
 for path in glob.glob(
         '/share/LBI_share/public/retina/human snRNAseq data_10x_ChenLab_ZupanLab/humansn_10x_storage/*matrix'):
@@ -125,14 +127,79 @@ for path in glob.glob(
             main_class.append('NA')
         else:
             main_class.append(class_counts.idxmax())
-    classified['main_class'] = main_class
-    classified['N_main_class'] = n_main_class
+    classified[MAIN] = main_class
+    classified[NMAIN] = n_main_class
     classified.to_csv(data_path_sample + 'classified.tsv', sep='\t')
 
     
 file.close()
+
+
+# Make summary of classifcation
+C2='classified with 2'
+C3='classified with 3'
+C4='classified with 4'
+NC='not classified'
+
+samples=[path.split('/')[-1] for path in
+    glob.glob(
+        '/share/LBI_share/public/retina/human snRNAseq data_10x_ChenLab_ZupanLab/humansn_10x_storage/*matrix')]
+sample_stats=pd.DataFrame(columns=[NC,C2,C3,C4,'AC','BC','EpiImmune','HC','PR','RGC'],index=samples)
+decimals=3
+for sample_name in samples:
+    # Load data
+    data_path_sample=data_path_h+sample_name+'_'
     
+    summary=pd.read_table(data_path_sample + 'classified.tsv',index_col=0)
+    n_all=float(summary.shape[0])
+    sample_stats.loc[sample_name,C2]=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN].notnull()) &  (summary[NMAIN]==2)].shape[0]/n_all, decimals)
+    sample_stats.loc[sample_name,C3]=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN].notnull()) &  (summary[NMAIN]==3)].shape[0]/n_all, decimals)
+    sample_stats.loc[sample_name,C4]=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN].notnull()) &  (summary[NMAIN]==4)].shape[0]/n_all, decimals)
+    nc_sum=summary[summary[MAIN].isnull()].shape[0]
+    sample_stats.loc[sample_name,NC]=("%."+str(decimals)+"f") % round(nc_sum/n_all, decimals)
+    n_classified=n_all-nc_sum
+    sample_stats.loc[sample_name,'AC']=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN]=='AC')].shape[0]/n_classified, decimals)
+    sample_stats.loc[sample_name,'BC']=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN]=='BC')].shape[0]/n_classified, decimals)
+    sample_stats.loc[sample_name,'EpiImmune']=("%."+str(decimals)+"f") % round(summary[(summary[MAIN]=='EpiImmune')].shape[0]/n_classified, decimals)
+    sample_stats.loc[sample_name,'HC']=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN]=='HC')].shape[0]/n_classified, decimals)
+    sample_stats.loc[sample_name,'PR']=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN]=='PR')].shape[0]/n_classified, decimals)
+    sample_stats.loc[sample_name,'RGC']=("%."+str(decimals)+"f") % round(summary[
+        (summary[MAIN]=='RGC')].shape[0]/n_classified, decimals)
     
+sample_stats.to_csv(data_path_h+'classification_summary.tsv' ,sep='\t')   
+
+samples=[path.split('/')[-1] for path in
+    glob.glob(
+        '/share/LBI_share/public/retina/human snRNAseq data_10x_ChenLab_ZupanLab/humansn_10x_storage/*matrix')]
+tsneknn_stats=pd.DataFrame(columns=['AC','BC','EpiImmune','HC','PR','RGC'],index=samples)
+decimals=3
+for sample_name in samples:
+    # Load data
+    data_path_sample=data_path_h+sample_name+'_'
+    summary=pd.read_table(data_path_sample + 'classified.tsv',index_col=0)
+    n_all=float(summary.shape[0])
+    
+    tsneknn_stats.loc[sample_name,'AC']=("%."+str(decimals)+"f") % round(summary[
+        (summary['knn_tsne']=='AC')].shape[0]/n_all, decimals)
+    tsneknn_stats.loc[sample_name,'BC']=("%."+str(decimals)+"f") % round(summary[
+        (summary['knn_tsne']=='BC')].shape[0]/n_all, decimals)
+    tsneknn_stats.loc[sample_name,'EpiImmune']=("%."+str(decimals)+"f") % round(summary[(summary['knn_tsne']=='EpiImmune')].shape[0]/n_all, decimals)
+    tsneknn_stats.loc[sample_name,'HC']=("%."+str(decimals)+"f") % round(summary[
+        (summary['knn_tsne']=='HC')].shape[0]/n_all, decimals)
+    tsneknn_stats.loc[sample_name,'PR']=("%."+str(decimals)+"f") % round(summary[
+        (summary['knn_tsne']=='PR')].shape[0]/n_all, decimals)
+    tsneknn_stats.loc[sample_name,'RGC']=("%."+str(decimals)+"f") % round(summary[
+        (summary['knn_tsne']=='RGC')].shape[0]/n_all, decimals)
+    
+tsneknn_stats.to_csv(data_path_h+'classification_summary_KNNtSNE.tsv' ,sep='\t')   
+
     
 # OLD data loading
     #data_h=scipy.io.mmread(path+'/matrix.mtx.gz')
