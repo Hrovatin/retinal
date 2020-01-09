@@ -261,6 +261,9 @@ def embed_tsne_new(data1,data2,col_data1,label:str='cell_type',perplexities_rang
 
 def tsne_add(tsne1,data2:pd.DataFrame,
               exaggerations: list = [2, None],momentums: list = [0.5, 0.8], n_iters_optimize:int=[5,100]):
+    """
+    Adds data2 on tsne1. Should have same features.
+    """
     tsne2 = tsne1.prepare_partial(data2,initialization="median",k=30)
     for exaggeration, momentum,n_iter in zip(exaggerations, momentums,n_iters_optimize):
         tsne2 = tsne2.optimize(n_iter=n_iter, exaggeration=exaggeration, momentum=momentum, 
@@ -268,8 +271,15 @@ def tsne_add(tsne1,data2:pd.DataFrame,
     return tsne2
     
 
-def make_log_regression(data1,data2,col_data,label='cell_type',
+def make_log_regression(data1:pd.DataFrame,data2:pd.DataFrame,col_data:pd.DataFrame,label='cell_type',
                         logreg={'penalty':'l1','C':0.8,'random_state':0,'solver':'saga','n_jobs':30},log_reg=None):
+    """
+    Makes softmax regression. Data1 for training, data2 for testing.
+    Prints training and testing statistics and number of used features per class.
+    :param label: Which coloumn of col_data to use as classes.
+    :param col_data: Describes groups/data labels. Rownames match data rownames.
+    :param log_reg: Give already trained classifier.
+    """
     if log_reg is None:
         log_reg=LogisticRegression(**logreg).fit(data1, col_data.loc[data1.index,label])
     
@@ -286,6 +296,13 @@ def make_log_regression(data1,data2,col_data,label='cell_type',
     return log_reg,predicted
     
 def evaluate_classifier(classifier,data,col_data,label):
+    """
+    Prints fscore, AUC and support for individual classes and whole dataset.
+    :param classifier: Classifier to use for predicting test data
+    :param data: Test data
+    :param col_data: To assign classes to test data. Rownames match data rownames.
+    :param label: Column of col_data to use as classes
+    """
     prediction=classifier.predict(data)
     truth=col_data.loc[data.index,label].values
     precision, recall, fscore, support = score(y_true=truth, y_pred=prediction,labels=classifier.classes_)
@@ -315,6 +332,12 @@ def evaluate_classifier(classifier,data,col_data,label):
     return pd.DataFrame(prediction,index=data.index)
 
 def roc_auc_micro(classifier, x:pd.DataFrame,y):
+    """
+    Roc AUC micro score
+    :param classifier: trained classifier
+    :param x: Data array.
+    :param y: True classes array, rows matching x.
+    """
     #Micro
     n_classes=len(classifier.classes_)
     if hasattr(classifier,'decision_function'):
@@ -327,6 +350,12 @@ def roc_auc_micro(classifier, x:pd.DataFrame,y):
 
     
 def predict(classifier,data:pd.DataFrame):
+    """
+    Predict class.
+    :param classifier: trained sklearn classifier
+    :param data: Uses values for prediction, index to report preedicted classes
+    :return: Dict keys rownames, values predicted classes
+    """
     prediction=classifier.predict(data)
     return dict(zip(data.index,prediction))
 
@@ -343,6 +372,10 @@ def loadPickle(file):
     return result
 
 def normalise_counts(counts=pd.DataFrame):
+    """
+    Normalise expression counts.
+    Divides each row by its sum and multiplies by 10^6. Then natural log transform the table.
+    """
     scale=counts.sum(axis=1)
     counts=counts.T
     counts=counts/scale
