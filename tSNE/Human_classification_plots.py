@@ -22,8 +22,13 @@ mpl.rcParams['figure.dpi'] = 10
 
 
 colour_dicts={'region':{'per':'#478216','fov':'#944368'},
-             'cell_type':{'reference':'#4d4d4d','AC':'#bf7195','BC':'#b59a00','EpiImmune':'#75b05b',
-                          'HC':'#a1651b','PR':'#7a0606','RGC':'#1c5191','NA':'#9500ff',
+             # Old colour scheme
+             #'cell_type':{'reference':'#4d4d4d','AC':'#bf7195','BC':'#b59a00','EpiImmune':'#75b05b',
+             #             'HC':'#a1651b','PR':'#7a0606','RGC':'#1c5191','NA':'#9500ff',
+             #            'human':'#4d4d4d','test':'#4d4d4d','training':'#4d4d4d','fov':'#4d4d4d','per':'#4d4d4d'
+             #            },
+             'cell_type':{'reference':'#4d4d4d','AC':'#ff33f1','BC':'#f6fa0f','EpiImmune':'#3dfc12',
+                          'HC':'#ff9d3b','PR':'#ff2014','RGC':'#38fff8','NA':'#9500ff',
                           'human':'#4d4d4d','test':'#4d4d4d','training':'#4d4d4d','fov':'#4d4d4d','per':'#4d4d4d'
                           },
              'classified':{'reference':'#4d4d4d',2:'#547ea8',3:'#5e8740',4:'#9da32f',
@@ -147,7 +152,7 @@ for sample_name in samples:
          plotting_params = [{'s':0.1,'alpha':0.1},{'s':1,'alpha':0.2}],
              order_legend=colour_dicts['cell_type'].keys(),
              title='Embeding of human data on macaque integrated data, coloured by macaque cell type')
-    plt.savefig(data_path_sample+'tSNE_all.pdf')
+    plt.savefig(data_path_sample+'tSNE_all_newColours.pdf')
     
     plot_tsne(tsnes=[tsne_all,tsne_h], 
           classes=[dict(zip(col_data.index,['reference']*tsne_all.shape[0])),
