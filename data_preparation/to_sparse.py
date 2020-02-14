@@ -7,7 +7,7 @@ import numpy as np
 
 data_path = '/home/karin/Documents/retinal/data/counts/'
 
-# ********** Make sparse data
+# ********** Make sparse data and filter cells
 summary = []
 files = [f for f in glob.glob(data_path + "*.csv.gz", recursive=True)]
 for file in files:
@@ -19,6 +19,7 @@ for file in files:
     cells_start = len(colnames)
     matrix = sp.sparse.csc_matrix(matrix.values)
     col_ok = []
+    # Filter cells based on total count
     for col_n in range(matrix.shape[1]):
         if matrix.getcol(col_n).count_nonzero() > 500:
             col_ok.append(col_n)
@@ -73,7 +74,7 @@ merged = sp.sparse.hstack(datas)
 mmwrite(data_path + 'merged_above500_sparse', merged)
 pd.DataFrame({'colnames': names}).to_csv(data_path + 'merged_above500_sparseCols.tsv', sep='\t', index=False)
 
-# *********** Split by cell type
+# *********** Split by cell type and retain only those that are present in broadinstitute annotation (their QC)
 files = [f for f in glob.glob(data_path + 'broadinstitute/' + "*cells.csv", recursive=True)]
 merged = sp.sparse.csc_matrix(sp.io.mmread(data_path + 'merged_above500_sparse.mtx'))
 names_original = list(pd.read_table(data_path + 'merged_above500_sparseCols.tsv')['colnames'])
@@ -144,6 +145,7 @@ for file in files:
     mmwrite(data_path + file_save + '_above500_sparse', subset_mtx)
 
 # **************************************************
+# Before this is the R QC step
 # ************ Retain cells that passed QC from the merged
 # As above
 merged = sp.sparse.csc_matrix(sp.io.mmread(data_path + 'merged_above500_sparse.mtx'))
